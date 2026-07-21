@@ -12,6 +12,8 @@ ManualGaitAnalyzer :
 * 6/24/26 : Added the feature to remove the last points (for editing ability for misclicks). Within a folder, save all the different MUID (videos) within the same .csv file, different rows indicating different MUID.
 
 * 7/7/26 : Added Base of Support calculations.
+
+* 7/20/26 : Added a pause after inputting points and require the user the press "ENTER" before moving onto the next step.
 '''
 
 import cv2
@@ -59,7 +61,7 @@ def main():
     # Generate the output file name based on the directory/folder that the video is in
     video_dir = os.path.dirname(video_path)
     folder_name = os.path.basename(video_dir)
-    output_file = os.path.join(video_dir, f"{folder_name}_Manual_Gait_Parameter.csv")
+    output_file = os.path.join(video_dir, f"{folder_name}_EasyGait_Parameter.csv")
 
     # Obtain the MUID of each video based on the video filename
     video_name = os.path.basename(video_path)
@@ -85,7 +87,7 @@ def main():
     first_frame_resized = cv2.resize(frame, (display_w, display_h))
 
     # 3. Stage 1: Calibration (Points 1 & 2)
-    window_title = f"Manual Gait Tracker - {video_name}"
+    window_title = f"EasyGait - {video_name}"
     cv2.namedWindow(window_title)
     cv2.setMouseCallback(window_title, mouse_callback)
 
@@ -108,7 +110,7 @@ def main():
         cv2.imshow(window_title, img_copy)
         key = cv2.waitKey(30) & 0xFF
 
-        # Once two points are clicked and click enter, finished the Calibration settings
+        # Once two points are clicked and press enter, finish the Calibration settings
         if key == 13 and len(clicked_points) == 2:  # ENTER
             break
         # If press the button C regardless of capitalization, it can undo the last point
@@ -174,14 +176,6 @@ def main():
         cv2.putText(frame_resized, f"Frame: {frame_idx} / {total_frames - 1} | [Space]: Pause | [C]: Undo", (15, 55),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
 
-        # Stage Transition State Control
-        if len(clicked_points) == 5 and current_stage == "HIND_RIGHT":
-            current_stage = "HIND_LEFT"
-            tkMessageBox.showinfo("Step 3: Track Hind Left",
-                                  "Hind Right registered.\nNow click 3 consecutive Hind Left steps.")
-        elif len(clicked_points) == 8:
-            current_stage = "DONE"
-
         # Drawing of the paws. 3rd, 4th, 5th clicked point denote the location of the right paws. Draw a line connecting them.
         if len(clicked_points) >= 3:
             for j in range(2, min(len(clicked_points), 5)):
@@ -217,7 +211,15 @@ def main():
         if key == 32:  # SPACEBAR
             is_playing = not is_playing
         elif key == 13:  # ENTER
-            if current_stage == "DONE":
+            if current_stage == "HIND_RIGHT" and len(clicked_points) == 5:
+                current_stage = "HIND_LEFT"
+                tkMessageBox.showinfo("Step 3: Track Hind Left",
+                                      "Hind Right registered manually.\nNow click 3 consecutive Hind Left steps.")
+            elif current_stage == "HIND_LEFT" and len(clicked_points) == 8:
+                current_stage = "DONE"
+                tkMessageBox.showinfo("Step 4: Confirm Data", 
+                                      "Hind Left registered.\nPress ENTER one more time to calculate metrics and save.")
+            elif current_stage == "DONE":
                 break
         elif key == ord('c') or key == ord('C'):  # Undo functionality
             if len(clicked_points) > 2:  # Do not delete calibration points here
